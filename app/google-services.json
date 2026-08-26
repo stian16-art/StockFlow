@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "749429412489",
+    "firebase_url": "https://pos-inventory-8f7b9-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "pos-inventory-8f7b9",
+    "storage_bucket": "pos-inventory-8f7b9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:749429412489:android:5ebe63c04cb04e1f826c58",
+        "android_client_info": {
+          "package_name": "com.inventory.my"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "749429412489-rbs2vl0bc5dh7df3vstghrj1cenrtf6t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCb6UUACUvuOGTIm1G15Zqg71bLJ2hsIp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "749429412489-rbs2vl0bc5dh7df3vstghrj1cenrtf6t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:749429412489:android:87989fad64e363b3826c58",
+        "android_client_info": {
+          "package_name": "com.pos.system"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "749429412489-rbs2vl0bc5dh7df3vstghrj1cenrtf6t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCb6UUACUvuOGTIm1G15Zqg71bLJ2hsIp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "749429412489-rbs2vl0bc5dh7df3vstghrj1cenrtf6t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:749429412489:android:61725f9af811d832826c58",
+        "android_client_info": {
+          "package_name": "com.stock.flow"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "749429412489-rbs2vl0bc5dh7df3vstghrj1cenrtf6t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCb6UUACUvuOGTIm1G15Zqg71bLJ2hsIp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "749429412489-rbs2vl0bc5dh7df3vstghrj1cenrtf6t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

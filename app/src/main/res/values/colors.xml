@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="stockflow_green">#2D9D71</color>
+    <color name="stockflow_background">#F5F5F5</color>
+    <color name="stockflow_white">#FFFFFF</color>
+    <color name="stockflow_gray">#B9B9B9</color>
+
+</resources>
