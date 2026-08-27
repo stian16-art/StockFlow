@@ -13,6 +13,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.bumptech.glide.Glide;
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.charts.PieChart;
@@ -24,6 +27,7 @@ import com.github.mikephil.charting.data.PieData;
 import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.data.PieEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
+import com.stock.flow.adapter.ProductSaleAdapter;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -60,13 +64,20 @@ public class DashboardHomeView {
 
     private final Map<String, Product> productByBarcode = new LinkedHashMap<>();
 
-    private LinearLayout hotSaleRow;
+    // replaced hotSaleRow with RecyclerView + adapter
+    private RecyclerView hotSaleRecycler;
+    private ProductSaleAdapter hotSaleAdapter;
+
     private PieChart categoryChart;
     private LinearLayout categoryLegendCol;
     private BarChart salesOverviewChart;
     private TextView profitValueText;
     private TextView profitDeltaText;
     private BarChart profitChart;
+
+    private static final SimpleDateFormat DATE_FMT_DAY = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+    private static final SimpleDateFormat DATE_FMT_MONTH = new SimpleDateFormat("yyyy-MM", Locale.getDefault());
+    private static final SimpleDateFormat LABEL_FMT = new SimpleDateFormat("EEE", Locale.getDefault());
 
     public DashboardHomeView(Context context) {
         this.context = context;
@@ -96,12 +107,17 @@ public class DashboardHomeView {
         column.addView(sectionTitle("Hot Sale Today", true));
         column.addView(spacer(12));
 
-        HorizontalScrollView hotSaleScroll = new HorizontalScrollView(context);
-        hotSaleScroll.setHorizontalScrollBarEnabled(false);
-        hotSaleRow = new LinearLayout(context);
-        hotSaleRow.setOrientation(LinearLayout.HORIZONTAL);
-        hotSaleScroll.addView(hotSaleRow);
-        column.addView(hotSaleScroll);
+        // create RecyclerView for hot sale
+        hotSaleRecycler = new RecyclerView(context);
+        hotSaleRecycler.setHorizontalScrollBarEnabled(false);
+        LinearLayout.LayoutParams recyclerLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        hotSaleRecycler.setLayoutParams(recyclerLp);
+        hotSaleRecycler.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+        hotSaleAdapter = new ProductSaleAdapter();
+        hotSaleRecycler.setAdapter(hotSaleAdapter);
+        column.addView(hotSaleRecycler);
         column.addView(spacer(28));
 
         column.addView(sectionTitleWithChip("Sales Data", "This Month"));
@@ -331,13 +347,11 @@ public class DashboardHomeView {
 
     private void refreshHotSale() {
 
-        if (hotSaleRow == null) {
+        if (hotSaleRecycler == null || hotSaleAdapter == null) {
             return;
         }
 
-        hotSaleRow.removeAllViews();
-
-        SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat dateFmt = DATE_FMT_DAY;
         String today = dateFmt.format(new java.util.Date());
 
         Map<String, Long> qtyByBarcode = new LinkedHashMap<>();
@@ -358,12 +372,9 @@ public class DashboardHomeView {
         }
 
         if (qtyByBarcode.isEmpty()) {
-            TextView empty = new TextView(context);
-            empty.setText("Wala pang benta ngayon");
-            empty.setTextSize(13);
-            empty.setTextColor(GRAY_TEXT);
-            empty.setPadding(dp(4), dp(20), dp(4), dp(20));
-            hotSaleRow.addView(empty);
+            // show a single empty text in the RecyclerView via adapter
+            List<ProductSaleAdapter.Item> list = new ArrayList<>();
+            hotSaleAdapter.updateItems(list);
             return;
         }
 
@@ -375,27 +386,20 @@ public class DashboardHomeView {
             }
         });
 
-        int rank = 1;
-        int limit = Math.min(sorted.size(), 4);
-
-        for (int i = 0; i < limit; i++) {
-
-            String barcode = sorted.get(i).getKey();
-            long qtySold = sorted.get(i).getValue();
+        List<ProductSaleAdapter.Item> toShow = new ArrayList<>();
+        int displayed = 0;
+        for (Map.Entry<String, Long> e : sorted) {
+            if (displayed >= 4) break;
+            String barcode = e.getKey();
+            long qtySold = e.getValue();
             Product product = productByBarcode.get(barcode);
-
-            if (product == null) {
-                continue;
-            }
-
-            View card = buildProductCard(rank, product, qtySold);
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
-                    dp(140), LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            p.rightMargin = dp(12);
-            hotSaleRow.addView(card, p);
-            rank++;
+            if (product == null) continue;
+            int rank = displayed + 1;
+            toShow.add(new ProductSaleAdapter.Item(rank, product, qtySold));
+            displayed++;
         }
+
+        hotSaleAdapter.updateItems(toShow);
     }
 
     private View buildProductCard(int rank, Product product, long qtySold) {
@@ -421,7 +425,7 @@ public class DashboardHomeView {
             imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
             imageView.setBackground(boxBg);
             imageView.setPadding(dp(4), dp(4), dp(4), dp(4));
-            Glide.with(context).load(product.getImagePath())
+            Glide.with(imageView).load(product.getImagePath())
                     .placeholder(boxBg).error(boxBg).into(imageView);
             imageWrap.addView(imageView, new FrameLayout.LayoutParams(dp(118), dp(90)));
         } else {
@@ -635,8 +639,8 @@ public class DashboardHomeView {
         }
 
         Map<String, Double> byDate = last7DaysMap();
-        SimpleDateFormat labelFmt = new SimpleDateFormat("EEE", Locale.getDefault());
-        SimpleDateFormat keyFmt = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat labelFmt = LABEL_FMT;
+        SimpleDateFormat keyFmt = DATE_FMT_DAY;
 
         for (SaleRecord sale : allSales) {
             if (sale.getDate() != null && byDate.containsKey(sale.getDate())) {
@@ -776,7 +780,7 @@ public class DashboardHomeView {
             }
         }
 
-        SimpleDateFormat labelFmt = new SimpleDateFormat("EEE", Locale.getDefault());
+        SimpleDateFormat labelFmt = LABEL_FMT;
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DAY_OF_YEAR, -6);
 
@@ -817,7 +821,7 @@ public class DashboardHomeView {
     private Map<String, Double> last7DaysMap() {
 
         Map<String, Double> map = new LinkedHashMap<>();
-        SimpleDateFormat keyFmt = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat keyFmt = DATE_FMT_DAY;
 
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DAY_OF_YEAR, -6);
@@ -832,8 +836,7 @@ public class DashboardHomeView {
 
     private List<SaleRecord> salesThisMonth() {
 
-        SimpleDateFormat monthFmt = new SimpleDateFormat("yyyy-MM", Locale.getDefault());
-        String currentMonth = monthFmt.format(new java.util.Date());
+        String currentMonth = DATE_FMT_MONTH.format(new java.util.Date());
 
         List<SaleRecord> result = new ArrayList<>();
         for (SaleRecord s : allSales) {
@@ -848,8 +851,7 @@ public class DashboardHomeView {
 
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.MONTH, -1);
-        SimpleDateFormat monthFmt = new SimpleDateFormat("yyyy-MM", Locale.getDefault());
-        String lastMonth = monthFmt.format(cal.getTime());
+        String lastMonth = DATE_FMT_MONTH.format(cal.getTime());
 
         List<SaleRecord> result = new ArrayList<>();
         for (SaleRecord s : allSales) {
