@@ -10,6 +10,7 @@ import com.google.firebase.database.IgnoreExtraProperties;
 @IgnoreExtraProperties
 public class PaymentSettings {
 
+    private String storeName;
     private String gcashNumber;
     private String gcashName;
     private String mayaNumber;
@@ -20,6 +21,14 @@ public class PaymentSettings {
 
     public PaymentSettings() {
         // Kailangan ng Firebase para sa deserialization
+    }
+
+    public String getStoreName() {
+        return storeName;
+    }
+
+    public void setStoreName(String storeName) {
+        this.storeName = storeName;
     }
 
     public String getGcashNumber() {

@@ -31,6 +31,8 @@ public class POSFragment extends Fragment {
     private ValueEventListener inventoryListener;
     private DatabaseReference paymentSettingsRef;
     private ValueEventListener paymentSettingsListener;
+    private DatabaseReference customersRef;
+    private ValueEventListener customersListener;
     private ActivityResultLauncher<Intent> scannerLauncher;
 
     @Nullable
@@ -52,10 +54,17 @@ public class POSFragment extends Fragment {
             scannerLauncher.launch(intent);
         });
 
+        posHomeView.setOnCartStateChangeListener(hasItems -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).setBottomNavHiddenForCart(hasItems);
+            }
+        });
+
         View view = posHomeView.build();
 
         startListeningToInventory();
         startListeningToPaymentSettings();
+        startListeningToCustomers();
 
         return view;
     }
@@ -152,6 +161,46 @@ public class POSFragment extends Fragment {
         paymentSettingsRef.addValueEventListener(paymentSettingsListener);
     }
 
+    private void startListeningToCustomers() {
+
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            return;
+        }
+
+        customersRef = FirebaseDatabase.getInstance()
+                .getReference("default_inventory")
+                .child(user.getUid())
+                .child("utangCustomers");
+
+        customersListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+
+                List<Customer> customers = new ArrayList<>();
+
+                for (DataSnapshot child : snapshot.getChildren()) {
+                    Customer customer = child.getValue(Customer.class);
+                    if (customer != null) {
+                        customer.setKey(child.getKey());
+                        customers.add(customer);
+                    }
+                }
+
+                if (posHomeView != null) {
+                    posHomeView.setCustomers(customers);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                // Tahimik na laktawan - hindi kritikal
+            }
+        };
+
+        customersRef.addValueEventListener(customersListener);
+    }
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();
@@ -162,6 +211,16 @@ public class POSFragment extends Fragment {
         if (paymentSettingsRef != null && paymentSettingsListener != null) {
             paymentSettingsRef.removeEventListener(paymentSettingsListener);
         }
+        if (customersRef != null && customersListener != null) {
+            customersRef.removeEventListener(customersListener);
+        }
+
+        // Safety net - huwag manatiling tago ang nav bar kung umalis
+        // sa POS habang may laman pa ang cart.
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setBottomNavHiddenForCart(false);
+        }
+
         posHomeView = null;
     }
 }

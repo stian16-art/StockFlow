@@ -39,6 +39,7 @@ public class IconViews {
     public static final int TYPE_USER = 22;
     public static final int TYPE_GOOGLE = 23;
     public static final int TYPE_LOGOUT = 24;
+    public static final int TYPE_MORE = 25;
 
     private static final int GOOGLE_BLUE = Color.rgb(66, 133, 244);
 
@@ -162,6 +163,9 @@ public class IconViews {
                     break;
                 case TYPE_LOGOUT:
                     drawLogout(canvas, cx, cy);
+                    break;
+                case TYPE_MORE:
+                    drawMore(canvas, cx, cy);
                     break;
             }
         }
@@ -581,6 +585,17 @@ public class IconViews {
             canvas.drawLine(cx - dp(3), cy, cx + dp(9), cy, paint);
             canvas.drawLine(cx + dp(4), cy - dp(5), cx + dp(9), cy, paint);
             canvas.drawLine(cx + dp(4), cy + dp(5), cx + dp(9), cy, paint);
+        }
+
+        private void drawMore(Canvas canvas, float cx, float cy) {
+
+            Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            dotPaint.setColor(color);
+            dotPaint.setStyle(Paint.Style.FILL);
+
+            canvas.drawCircle(cx, cy - dp(6), dp(1.8f), dotPaint);
+            canvas.drawCircle(cx, cy, dp(1.8f), dotPaint);
+            canvas.drawCircle(cx, cy + dp(6), dp(1.8f), dotPaint);
         }
     }
 }

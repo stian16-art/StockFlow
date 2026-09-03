@@ -77,6 +77,9 @@ public class ProfileHomeView {
         column.addView(buildPaymentSettingsCard());
         column.addView(spacer(16));
 
+        column.addView(buildUtangButton());
+        column.addView(spacer(16));
+
         column.addView(buildMigrateButton());
         column.addView(spacer(16));
 
@@ -169,6 +172,7 @@ public class ProfileHomeView {
     // PAYMENT SETTINGS (GCash/Maya/Maribank/Card)
     // -------------------------
 
+    private EditText storeNameInput;
     private EditText gcashNumberInput;
     private EditText gcashNameInput;
     private EditText mayaNumberInput;
@@ -187,15 +191,56 @@ public class ProfileHomeView {
         card.setBackground(bg);
         card.setElevation(dp(2));
 
+        // Title row - clickable, may arrow na nagto-toggle ng fields
+        LinearLayout titleRow = new LinearLayout(context);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        titleRow.setClickable(true);
+        titleRow.setFocusable(true);
+
+        android.util.TypedValue outValue = new android.util.TypedValue();
+        context.getTheme().resolveAttribute(
+                android.R.attr.selectableItemBackground, outValue, true
+        );
+        titleRow.setBackgroundResource(outValue.resourceId != 0 ? outValue.resourceId : 0);
+
         TextView title = new TextView(context);
         title.setText("Payment Methods");
         title.setTextSize(15);
         title.setTypeface(null, Typeface.BOLD);
         title.setTextColor(NAVY);
-        card.addView(title);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        );
+        titleRow.addView(title, titleParams);
+
+        TextView arrow = new TextView(context);
+        arrow.setText("\u25BC");
+        arrow.setTextSize(13);
+        arrow.setTextColor(GRAY_TEXT);
+        titleRow.addView(arrow);
+
+        card.addView(titleRow);
+
+        // Lahat ng fields - naka-tago (GONE) by default, ito lang ang
+        // itinatago/ipinapakita ng arrow, hindi yung title row.
+        LinearLayout fieldsContainer = new LinearLayout(context);
+        fieldsContainer.setOrientation(LinearLayout.VERTICAL);
+        fieldsContainer.setVisibility(View.GONE);
+        LinearLayout.LayoutParams fieldsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        fieldsParams.topMargin = dp(4);
+        card.addView(fieldsContainer, fieldsParams);
+
+        titleRow.setOnClickListener(v -> {
+            boolean isVisible = fieldsContainer.getVisibility() == View.VISIBLE;
+            fieldsContainer.setVisibility(isVisible ? View.GONE : View.VISIBLE);
+            arrow.setText(isVisible ? "\u25BC" : "\u25B2");
+        });
 
         TextView subtitle = new TextView(context);
-        subtitle.setText("Ginagamit ito sa POS para sa QR code at reference sa checkout.");
+        subtitle.setText("Ginagamit ito sa POS resibo, QR/reference, at checkout.");
         subtitle.setTextSize(11);
         subtitle.setTextColor(GRAY_TEXT);
         LinearLayout.LayoutParams subParams = new LinearLayout.LayoutParams(
@@ -203,26 +248,30 @@ public class ProfileHomeView {
         );
         subParams.topMargin = dp(2);
         subParams.bottomMargin = dp(14);
-        card.addView(subtitle, subParams);
+        fieldsContainer.addView(subtitle, subParams);
+
+        storeNameInput = paymentField("Store Name (lalabas sa resibo)", false);
+        fieldsContainer.addView(storeNameInput);
+        fieldsContainer.addView(spacer(10));
 
         gcashNumberInput = paymentField("GCash Number (hal. 09171234567)", false);
-        card.addView(gcashNumberInput);
-        card.addView(spacer(10));
+        fieldsContainer.addView(gcashNumberInput);
+        fieldsContainer.addView(spacer(10));
 
         gcashNameInput = paymentField("GCash Account Name (opsyonal)", false);
-        card.addView(gcashNameInput);
-        card.addView(spacer(10));
+        fieldsContainer.addView(gcashNameInput);
+        fieldsContainer.addView(spacer(10));
 
         mayaNumberInput = paymentField("Maya Number", false);
-        card.addView(mayaNumberInput);
-        card.addView(spacer(10));
+        fieldsContainer.addView(mayaNumberInput);
+        fieldsContainer.addView(spacer(10));
 
         maribankNumberInput = paymentField("Maribank Number", false);
-        card.addView(maribankNumberInput);
-        card.addView(spacer(10));
+        fieldsContainer.addView(maribankNumberInput);
+        fieldsContainer.addView(spacer(10));
 
         cardDetailsInput = paymentField("Card Details / Notes (hal. \"Tap-to-pay terminal sa counter\")", true);
-        card.addView(cardDetailsInput);
+        fieldsContainer.addView(cardDetailsInput);
 
         TextView cardWarning = new TextView(context);
         cardWarning.setText("Para sa seguridad, huwag ilagay dito ang buong card number - "
@@ -233,9 +282,9 @@ public class ProfileHomeView {
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
         );
         warnParams.topMargin = dp(4);
-        card.addView(cardWarning, warnParams);
+        fieldsContainer.addView(cardWarning, warnParams);
 
-        card.addView(spacer(14));
+        fieldsContainer.addView(spacer(14));
 
         LinearLayout saveBtn = new LinearLayout(context);
         saveBtn.setOrientation(LinearLayout.HORIZONTAL);
@@ -255,7 +304,7 @@ public class ProfileHomeView {
         saveBtn.addView(saveText);
 
         saveBtn.setOnClickListener(v -> handleSavePaymentSettings());
-        card.addView(saveBtn);
+        fieldsContainer.addView(saveBtn);
 
         loadPaymentSettings();
 
@@ -306,6 +355,7 @@ public class ProfileHomeView {
                             return;
                         }
 
+                        setIfNotNull(storeNameInput, settings.getStoreName());
                         setIfNotNull(gcashNumberInput, settings.getGcashNumber());
                         setIfNotNull(gcashNameInput, settings.getGcashName());
                         setIfNotNull(mayaNumberInput, settings.getMayaNumber());
@@ -335,6 +385,7 @@ public class ProfileHomeView {
         }
 
         Map<String, Object> settings = new HashMap<>();
+        settings.put("storeName", storeNameInput.getText().toString().trim());
         settings.put("gcashNumber", gcashNumberInput.getText().toString().trim());
         settings.put("gcashName", gcashNameInput.getText().toString().trim());
         settings.put("mayaNumber", mayaNumberInput.getText().toString().trim());
@@ -386,6 +437,58 @@ public class ProfileHomeView {
         button.addView(text);
 
         button.setOnClickListener(v -> handleMigrateLegacyProducts());
+
+        return button;
+    }
+
+    // -------------------------
+    // UTANG (customer credit)
+    // -------------------------
+
+    private View buildUtangButton() {
+
+        LinearLayout button = new LinearLayout(context);
+        button.setOrientation(LinearLayout.HORIZONTAL);
+        button.setGravity(Gravity.CENTER_VERTICAL);
+        button.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(CARD_BG);
+        bg.setCornerRadius(dp(16));
+        bg.setStroke(dp(1), Color.rgb(230, 234, 240));
+        button.setBackground(bg);
+        button.setElevation(dp(1));
+
+        FrameLayout iconWrap = new FrameLayout(context);
+        GradientDrawable circleBg = new GradientDrawable();
+        circleBg.setShape(GradientDrawable.OVAL);
+        circleBg.setColor(Color.rgb(255, 235, 230));
+        iconWrap.setBackground(circleBg);
+
+        IconViews.IconView icon = new IconViews.IconView(context, IconViews.TYPE_WALLET, RED);
+        int iconSize = dp(18);
+        iconWrap.addView(icon, new FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER));
+
+        int wrapSize = dp(36);
+        button.addView(iconWrap, new LinearLayout.LayoutParams(wrapSize, wrapSize));
+
+        TextView text = new TextView(context);
+        text.setText("Utang (Customer Credits)");
+        text.setTextSize(14);
+        text.setTypeface(null, Typeface.BOLD);
+        text.setTextColor(NAVY);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        );
+        textParams.leftMargin = dp(12);
+        button.addView(text, textParams);
+
+        IconViews.IconView chevron = new IconViews.IconView(context, IconViews.TYPE_CHEVRON, GRAY_TEXT);
+        button.addView(chevron, new LinearLayout.LayoutParams(dp(16), dp(16)));
+
+        button.setOnClickListener(v -> context.startActivity(
+                new Intent(context, UtangActivity.class)
+        ));
 
         return button;
     }

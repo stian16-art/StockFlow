@@ -1,28 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission 
-        android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />   
-        <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
-             
+
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/screen_logo"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity
-    android:name=".SignupActivity"
-    android:exported="false" />
-    <activity
-    android:name=".ScannerActivity"
-    android:exported="false" />
-    
-<!-- Tanggalin ang <intent-filter> ng MAIN/LAUNCHER sa MainActivity mo kung meron -->
-<activity
-    android:name=".MainActivity"
-    android:exported="false" />
+
         <activity
             android:name=".LoginActivity"
             android:exported="true">
@@ -31,6 +21,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SignupActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ScannerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".MainActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
+        <activity
+    android:name=".UtangActivity"
+    android:exported="false" />
+
     </application>
-    
+
 </manifest>

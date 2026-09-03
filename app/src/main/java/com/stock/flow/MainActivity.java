@@ -28,6 +28,10 @@ public class MainActivity extends AppCompatActivity {
     private FrameLayout root;
     private FrameLayout homeView;
     private FrameLayout fragmentContainer;
+    private StockFlowBottomNav bottomNav;
+
+    private boolean keyboardVisible = false;
+    private boolean hideNavForCart = false;
 
     private DashboardHomeView dashboardHomeView;
 
@@ -61,6 +65,8 @@ public class MainActivity extends AppCompatActivity {
         createBottomNavigation();
 
         setContentView(root);
+
+        setupKeyboardVisibilityListener();
 
         startListeningForDashboardData();
     }
@@ -182,8 +188,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void createBottomNavigation() {
 
-        StockFlowBottomNav bottomNav =
-                new StockFlowBottomNav(this);
+        bottomNav = new StockFlowBottomNav(this);
 
         bottomNav.setOnNavigationSelectedListener(
                 new StockFlowBottomNav.OnNavigationSelectedListener() {
@@ -244,6 +249,51 @@ public class MainActivity extends AppCompatActivity {
 
         transaction.replace(CONTAINER_ID, fragment);
         transaction.commit();
+    }
+
+    /**
+     * Sinusubaybayan kung bukas ang on-screen keyboard sa
+     * pamamagitan ng pagsukat sa laki ng visible display frame.
+     * Kailangan nito ng android:windowSoftInputMode="adjustResize"
+     * sa Activity na ito sa AndroidManifest.xml para tumpak.
+     */
+    private void setupKeyboardVisibilityListener() {
+
+        root.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+
+            android.graphics.Rect visibleFrame = new android.graphics.Rect();
+            root.getWindowVisibleDisplayFrame(visibleFrame);
+
+            int screenHeight = root.getRootView().getHeight();
+            int keypadHeight = screenHeight - visibleFrame.bottom;
+
+            boolean isKeyboardOpen = keypadHeight > screenHeight * 0.15;
+
+            if (isKeyboardOpen != keyboardVisible) {
+                keyboardVisible = isKeyboardOpen;
+                updateBottomNavVisibility();
+            }
+        });
+    }
+
+    /**
+     * Tinatawag ng POSFragment tuwing may laman/naging walang laman
+     * ang cart, para magbigay ng mas malaking espasyo habang
+     * nagche-checkout.
+     */
+    public void setBottomNavHiddenForCart(boolean hidden) {
+        hideNavForCart = hidden;
+        updateBottomNavVisibility();
+    }
+
+    private void updateBottomNavVisibility() {
+
+        if (bottomNav == null) {
+            return;
+        }
+
+        boolean shouldShow = !keyboardVisible && !hideNavForCart;
+        bottomNav.setBarVisible(shouldShow);
     }
 
     private int dp(float value) {

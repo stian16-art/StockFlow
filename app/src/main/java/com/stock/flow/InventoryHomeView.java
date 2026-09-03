@@ -2,16 +2,15 @@ package com.stock.flow;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
@@ -22,12 +21,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -588,13 +588,28 @@ public class InventoryHomeView {
 
         card.addView(spacer(8));
 
+        LinearLayout nameRow = new LinearLayout(context);
+        nameRow.setOrientation(LinearLayout.HORIZONTAL);
+        nameRow.setGravity(Gravity.CENTER_VERTICAL);
+
         TextView nameView = new TextView(context);
         nameView.setText(product.getName() != null ? product.getName() : "");
         nameView.setTextSize(13);
         nameView.setTypeface(null, Typeface.BOLD);
         nameView.setTextColor(NAVY);
         nameView.setMaxLines(1);
-        card.addView(nameView);
+        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        );
+        nameRow.addView(nameView, nameParams);
+
+        IconViews.IconView moreIcon = new IconViews.IconView(context, IconViews.TYPE_MORE, GRAY_TEXT);
+        LinearLayout.LayoutParams moreParams = new LinearLayout.LayoutParams(dp(20), dp(20));
+        moreParams.leftMargin = dp(4);
+        moreIcon.setOnClickListener(v -> showProductMenu(product));
+        nameRow.addView(moreIcon, moreParams);
+
+        card.addView(nameRow);
 
         TextView categoryView = new TextView(context);
         categoryView.setText(product.getCategory() != null ? product.getCategory() : "");
@@ -676,121 +691,460 @@ public class InventoryHomeView {
 
     private void showAddProductDialog() {
 
+        LinearLayout shell = modernDialogShell("Add Product");
+
+        TextInputLayout nameField = textField("Product Name", false);
+        TextInputLayout categoryField = textField("Category", false);
+        TextInputLayout barcodeField = textField("Barcode", true);
+        TextInputLayout costField = textField("Cost Price", true);
+        TextInputLayout sellingField = textField("Selling Price", true);
+        TextInputLayout stockField = textField("Stock Quantity", true);
+
         LinearLayout form = new LinearLayout(context);
         form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(20);
-        form.setPadding(pad, dp(12), pad, 0);
+        form.addView(nameField);
+        form.addView(categoryField);
+        form.addView(barcodeField);
+        form.addView(costField);
+        form.addView(sellingField);
+        form.addView(stockField);
 
-        EditText nameInput = dialogInput("Product Name");
-        EditText categoryInput = dialogInput("Category");
-        EditText barcodeInput = dialogInput("Barcode");
-        barcodeInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-        EditText costInput = dialogInput("Cost Price");
-        costInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText sellingInput = dialogInput("Selling Price");
-        sellingInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText stockInput = dialogInput("Stock Quantity");
-        stockInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-
-        form.addView(nameInput);
-        form.addView(categoryInput);
-        form.addView(barcodeInput);
-        form.addView(costInput);
-        form.addView(sellingInput);
-        form.addView(stockInput);
-
-        ScrollView scroll = new ScrollView(context);
+        MaxHeightScrollView scroll = new MaxHeightScrollView(context, dp(400));
         scroll.addView(form);
+        shell.addView(scroll);
+        shell.addView(spacer(16));
 
-        AlertDialog dialog = new AlertDialog.Builder(context)
-                .setTitle("Add Product")
-                .setView(scroll)
-                .setPositiveButton("Add", null)
-                .setNegativeButton("Cancel", null)
-                .create();
+        LinearLayout buttonRow = new LinearLayout(context);
+        buttonRow.setOrientation(LinearLayout.HORIZONTAL);
+        shell.addView(buttonRow);
 
-        dialog.setOnShowListener(d -> {
+        AlertDialog dialog = buildModernDialog(shell);
 
-            Button addBtn = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        LinearLayout cancelBtn = flatDialogButton("Cancel", NAVY, false);
+        cancelBtn.setOnClickListener(v -> dialog.dismiss());
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        );
+        cancelParams.rightMargin = dp(8);
+        buttonRow.addView(cancelBtn, cancelParams);
 
-            addBtn.setOnClickListener(v -> {
+        LinearLayout addBtn = flatDialogButton("Add", BLUE, true);
+        buttonRow.addView(addBtn, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        ));
 
-                String name = nameInput.getText().toString().trim();
-                String category = categoryInput.getText().toString().trim();
-                String barcode = barcodeInput.getText().toString().trim();
-                String costStr = costInput.getText().toString().trim();
-                String sellingStr = sellingInput.getText().toString().trim();
-                String stockStr = stockInput.getText().toString().trim();
+        addBtn.setOnClickListener(v -> {
 
-                if (name.isEmpty()) {
-                    nameInput.setError("Kailangan");
-                    return;
-                }
-                if (barcode.isEmpty()) {
-                    barcodeInput.setError("Kailangan");
-                    return;
-                }
-                if (sellingStr.isEmpty()) {
-                    sellingInput.setError("Kailangan");
-                    return;
-                }
+            String name = fieldText(nameField);
+            String category = fieldText(categoryField);
+            String barcode = fieldText(barcodeField);
+            String costStr = fieldText(costField);
+            String sellingStr = fieldText(sellingField);
+            String stockStr = fieldText(stockField);
 
-                double cost = costStr.isEmpty() ? 0 : Double.parseDouble(costStr);
-                double selling = Double.parseDouble(sellingStr);
-                long stock = stockStr.isEmpty() ? 0 : Long.parseLong(stockStr);
+            if (name.isEmpty()) {
+                nameField.setError("Kailangan");
+                return;
+            }
+            nameField.setError(null);
 
-                FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-                if (user == null) {
-                    Toast.makeText(context, "Kailangan naka-login", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+            if (barcode.isEmpty()) {
+                barcodeField.setError("Kailangan");
+                return;
+            }
+            barcodeField.setError(null);
 
-                Map<String, Object> productData = new HashMap<>();
-                productData.put("name", name);
-                productData.put("category", category);
-                productData.put("barcode", barcode);
-                productData.put("costPrice", cost);
-                productData.put("sellingPrice", selling);
-                productData.put("stock", stock);
-                productData.put("imagePath", "");
-                productData.put("id", System.currentTimeMillis());
-                productData.put("updatedAt", System.currentTimeMillis());
+            if (sellingStr.isEmpty()) {
+                sellingField.setError("Kailangan");
+                return;
+            }
+            sellingField.setError(null);
 
-                FirebaseDatabase.getInstance()
-                        .getReference("default_inventory")
-                        .child(user.getUid())
-                        .child("inventory")
-                        .child(barcode)
-                        .setValue(productData)
-                        .addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Toast.makeText(context, "Naidagdag ang produkto", Toast.LENGTH_SHORT).show();
-                                dialog.dismiss();
-                            } else {
-                                Toast.makeText(
-                                        context,
-                                        "Hindi na-save: " + (task.getException() != null
-                                                ? task.getException().getMessage() : ""),
-                                        Toast.LENGTH_LONG
-                                ).show();
-                            }
-                        });
-            });
+            double cost = costStr.isEmpty() ? 0 : Double.parseDouble(costStr);
+            double selling = Double.parseDouble(sellingStr);
+            long stock = stockStr.isEmpty() ? 0 : Long.parseLong(stockStr);
+
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) {
+                Toast.makeText(context, "Kailangan naka-login", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Map<String, Object> productData = new HashMap<>();
+            productData.put("name", name);
+            productData.put("category", category);
+            productData.put("barcode", barcode);
+            productData.put("costPrice", cost);
+            productData.put("sellingPrice", selling);
+            productData.put("stock", stock);
+            productData.put("imagePath", "");
+            productData.put("id", System.currentTimeMillis());
+            productData.put("updatedAt", System.currentTimeMillis());
+
+            FirebaseDatabase.getInstance()
+                    .getReference("default_inventory")
+                    .child(user.getUid())
+                    .child("inventory")
+                    .child(barcode)
+                    .setValue(productData)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Toast.makeText(context, "Naidagdag ang produkto", Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                        } else {
+                            Toast.makeText(
+                                    context,
+                                    "Hindi na-save: " + (task.getException() != null
+                                            ? task.getException().getMessage() : ""),
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        }
+                    });
         });
 
         dialog.show();
     }
 
-    private EditText dialogInput(String hint) {
-        EditText input = new EditText(context);
-        input.setHint(hint);
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+    // -------------------------
+    // MODERN DIALOG HELPERS
+    // -------------------------
+
+    /** Rounded white card shell na naka-transparent window - ginagamit ng lahat ng dialog. */
+    private LinearLayout modernDialogShell(String title) {
+
+        LinearLayout shell = new LinearLayout(context);
+        shell.setOrientation(LinearLayout.VERTICAL);
+        shell.setPadding(dp(22), dp(20), dp(22), dp(18));
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(CARD_BG);
+        bg.setCornerRadius(dp(20));
+        shell.setBackground(bg);
+
+        if (title != null) {
+            TextView titleView = new TextView(context);
+            titleView.setText(title);
+            titleView.setTextSize(17);
+            titleView.setTypeface(null, Typeface.BOLD);
+            titleView.setTextColor(NAVY);
+            shell.addView(titleView);
+            shell.addView(spacer(14));
+        }
+
+        return shell;
+    }
+
+    private AlertDialog buildModernDialog(View content) {
+
+        AlertDialog dialog = new AlertDialog.Builder(context)
+                .setView(content)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+
+        return dialog;
+    }
+
+    private LinearLayout flatDialogButton(String label, int color, boolean filled) {
+
+        LinearLayout button = new LinearLayout(context);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(0, dp(13), 0, dp(13));
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(12));
+        if (filled) {
+            bg.setColor(color);
+        } else {
+            bg.setColor(Color.WHITE);
+            bg.setStroke(dp(1), LIGHT_BORDER);
+        }
+        button.setBackground(bg);
+
+        TextView text = new TextView(context);
+        text.setText(label);
+        text.setTextSize(13);
+        text.setTypeface(null, Typeface.BOLD);
+        text.setTextColor(filled ? Color.WHITE : color);
+        button.addView(text);
+
+        return button;
+    }
+
+    /** TextInputLayout na may floating label, kulay na tugma sa app palette. */
+    private TextInputLayout textField(String hint, boolean numeric) {
+
+        TextInputLayout layout = new TextInputLayout(context);
+        layout.setHint(hint);
+        layout.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
+        layout.setBoxCornerRadii(dp(12), dp(12), dp(12), dp(12));
+        layout.setBoxStrokeColor(BLUE);
+        layout.setHintTextColor(android.content.res.ColorStateList.valueOf(BLUE));
+
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        p.bottomMargin = dp(8);
-        input.setLayoutParams(p);
-        return input;
+        layoutParams.bottomMargin = dp(12);
+        layout.setLayoutParams(layoutParams);
+
+        TextInputEditText input = new TextInputEditText(context);
+        input.setTextColor(NAVY);
+        if (numeric) {
+            input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        }
+        layout.addView(input);
+
+        return layout;
+    }
+
+    private String fieldText(TextInputLayout field) {
+        return field.getEditText() != null
+                ? field.getEditText().getText().toString().trim() : "";
+    }
+
+    // -------------------------
+    // 3-DOT MENU (Edit / Delete)
+    // -------------------------
+
+    private void showProductMenu(Product product) {
+
+        LinearLayout shell = modernDialogShell(product.getName());
+
+        LinearLayout editRow = menuRow(IconViews.TYPE_TAG, "Edit", NAVY);
+        editRow.setOnClickListener(v -> {
+            currentMenuDialog.dismiss();
+            showEditProductDialog(product);
+        });
+        shell.addView(editRow);
+
+        shell.addView(spacer(4));
+
+        LinearLayout deleteRow = menuRow(IconViews.TYPE_WARNING, "Delete", RED);
+        deleteRow.setOnClickListener(v -> {
+            currentMenuDialog.dismiss();
+            showDeleteConfirmDialog(product);
+        });
+        shell.addView(deleteRow);
+
+        currentMenuDialog = buildModernDialog(shell);
+        currentMenuDialog.show();
+    }
+
+    /** Pansamantalang reference lang para ma-dismiss sa loob ng row click listeners. */
+    private AlertDialog currentMenuDialog;
+
+    private LinearLayout menuRow(int iconType, String label, int color) {
+
+        LinearLayout row = new LinearLayout(context);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(10), dp(13), dp(10), dp(13));
+        row.setClickable(true);
+        row.setFocusable(true);
+
+        android.util.TypedValue outValue = new android.util.TypedValue();
+        context.getTheme().resolveAttribute(
+                android.R.attr.selectableItemBackground, outValue, true
+        );
+        GradientDrawable rowBg = new GradientDrawable();
+        rowBg.setCornerRadius(dp(10));
+        rowBg.setColor(Color.TRANSPARENT);
+        row.setBackground(rowBg);
+        if (outValue.resourceId != 0) {
+            row.setForeground(context.getDrawable(outValue.resourceId));
+        }
+
+        IconViews.IconView icon = new IconViews.IconView(context, iconType, color);
+        row.addView(icon, new LinearLayout.LayoutParams(dp(20), dp(20)));
+
+        TextView text = new TextView(context);
+        text.setText(label);
+        text.setTextSize(14);
+        text.setTypeface(null, Typeface.BOLD);
+        text.setTextColor(color);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        textParams.leftMargin = dp(14);
+        row.addView(text, textParams);
+
+        return row;
+    }
+
+    private void showEditProductDialog(Product product) {
+
+        LinearLayout shell = modernDialogShell("Edit " + product.getName());
+
+        TextInputLayout stockField = textField("Stock", true);
+        setFieldText(stockField, String.valueOf(product.getStock()));
+        shell.addView(stockField);
+
+        TextInputLayout costField = textField("Cost Price", true);
+        setFieldText(costField, String.valueOf(product.getCostPrice()));
+        shell.addView(costField);
+
+        TextInputLayout sellingField = textField("Selling Price", true);
+        setFieldText(sellingField, String.valueOf(product.getSellingPrice()));
+        shell.addView(sellingField);
+
+        shell.addView(spacer(8));
+
+        LinearLayout buttonRow = new LinearLayout(context);
+        buttonRow.setOrientation(LinearLayout.HORIZONTAL);
+        shell.addView(buttonRow);
+
+        AlertDialog dialog = buildModernDialog(shell);
+
+        LinearLayout cancelBtn = flatDialogButton("Cancel", NAVY, false);
+        cancelBtn.setOnClickListener(v -> dialog.dismiss());
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        );
+        cancelParams.rightMargin = dp(8);
+        buttonRow.addView(cancelBtn, cancelParams);
+
+        LinearLayout saveBtn = flatDialogButton("Save", BLUE, true);
+        buttonRow.addView(saveBtn, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        ));
+
+        saveBtn.setOnClickListener(v -> {
+
+            String stockStr = fieldText(stockField);
+            String costStr = fieldText(costField);
+            String sellingStr = fieldText(sellingField);
+
+            if (sellingStr.isEmpty()) {
+                sellingField.setError("Kailangan");
+                return;
+            }
+            sellingField.setError(null);
+
+            long stock = stockStr.isEmpty() ? 0 : Long.parseLong(stockStr);
+            double cost = costStr.isEmpty() ? 0 : Double.parseDouble(costStr);
+            double selling = Double.parseDouble(sellingStr);
+
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) {
+                Toast.makeText(context, "Kailangan naka-login", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("stock", stock);
+            updates.put("costPrice", cost);
+            updates.put("sellingPrice", selling);
+            updates.put("updatedAt", System.currentTimeMillis());
+
+            FirebaseDatabase.getInstance()
+                    .getReference("default_inventory")
+                    .child(user.getUid())
+                    .child("inventory")
+                    .child(product.getBarcode())
+                    .updateChildren(updates)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Toast.makeText(context, "Na-update ang produkto", Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                        } else {
+                            Toast.makeText(
+                                    context,
+                                    "Hindi na-save: " + (task.getException() != null
+                                            ? task.getException().getMessage() : ""),
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        }
+                    });
+        });
+
+        dialog.show();
+    }
+
+    private void setFieldText(TextInputLayout field, String value) {
+        if (field.getEditText() != null) {
+            field.getEditText().setText(value);
+        }
+    }
+
+    private void showDeleteConfirmDialog(Product product) {
+
+        LinearLayout shell = modernDialogShell(null);
+        shell.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        IconViews.IconView warningIcon = new IconViews.IconView(context, IconViews.TYPE_WARNING, RED);
+        LinearLayout.LayoutParams warnParams = new LinearLayout.LayoutParams(dp(40), dp(40));
+        warnParams.gravity = Gravity.CENTER_HORIZONTAL;
+        shell.addView(warningIcon, warnParams);
+        shell.addView(spacer(12));
+
+        TextView title = new TextView(context);
+        title.setText("Tanggalin ang " + product.getName() + "?");
+        title.setTextSize(16);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setTextColor(NAVY);
+        title.setGravity(Gravity.CENTER);
+        shell.addView(title);
+        shell.addView(spacer(6));
+
+        TextView message = new TextView(context);
+        message.setText("Hindi na ito mababawi pagkatapos.");
+        message.setTextSize(13);
+        message.setTextColor(GRAY_TEXT);
+        message.setGravity(Gravity.CENTER);
+        shell.addView(message);
+        shell.addView(spacer(18));
+
+        LinearLayout buttonRow = new LinearLayout(context);
+        buttonRow.setOrientation(LinearLayout.HORIZONTAL);
+        shell.addView(buttonRow);
+
+        AlertDialog dialog = buildModernDialog(shell);
+
+        LinearLayout cancelBtn = flatDialogButton("Cancel", NAVY, false);
+        cancelBtn.setOnClickListener(v -> dialog.dismiss());
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        );
+        cancelParams.rightMargin = dp(8);
+        buttonRow.addView(cancelBtn, cancelParams);
+
+        LinearLayout deleteBtn = flatDialogButton("Delete", RED, true);
+        buttonRow.addView(deleteBtn, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        ));
+
+        deleteBtn.setOnClickListener(v -> {
+
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) {
+                Toast.makeText(context, "Kailangan naka-login", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            FirebaseDatabase.getInstance()
+                    .getReference("default_inventory")
+                    .child(user.getUid())
+                    .child("inventory")
+                    .child(product.getBarcode())
+                    .removeValue()
+                    .addOnCompleteListener(task -> {
+                        dialog.dismiss();
+                        if (task.isSuccessful()) {
+                            Toast.makeText(context, "Natanggal ang produkto", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(
+                                    context,
+                                    "Hindi natanggal: " + (task.getException() != null
+                                            ? task.getException().getMessage() : ""),
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        }
+                    });
+        });
+
+        dialog.show();
     }
 
     // -------------------------
@@ -800,17 +1154,62 @@ public class InventoryHomeView {
     private void showFilterDialog() {
 
         String[] options = {"All", "In Stock", "Low Stock", "Out of Stock"};
-        int checked = Arrays.asList(options).indexOf(stockFilter);
 
-        new AlertDialog.Builder(context)
-                .setTitle("Filter by Stock Status")
-                .setSingleChoiceItems(options, checked, (dialog, which) -> {
-                    stockFilter = options[which];
-                    refreshGrid();
-                    dialog.dismiss();
-                })
-                .setNegativeButton("Close", null)
-                .show();
+        LinearLayout shell = modernDialogShell("Filter by Stock Status");
+
+        AlertDialog[] dialogHolder = new AlertDialog[1];
+
+        for (String option : options) {
+
+            boolean isSelected = option.equals(stockFilter);
+
+            LinearLayout row = new LinearLayout(context);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(10), dp(13), dp(10), dp(13));
+            row.setClickable(true);
+            row.setFocusable(true);
+
+            android.util.TypedValue outValue = new android.util.TypedValue();
+            context.getTheme().resolveAttribute(
+                    android.R.attr.selectableItemBackground, outValue, true
+            );
+            if (outValue.resourceId != 0) {
+                row.setForeground(context.getDrawable(outValue.resourceId));
+            }
+
+            TextView label = new TextView(context);
+            label.setText(option);
+            label.setTextSize(14);
+            label.setTypeface(null, isSelected ? Typeface.BOLD : Typeface.NORMAL);
+            label.setTextColor(isSelected ? BLUE : NAVY);
+            LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            );
+            row.addView(label, labelParams);
+
+            if (isSelected) {
+                TextView check = new TextView(context);
+                check.setText("\u2713");
+                check.setTextSize(15);
+                check.setTypeface(null, Typeface.BOLD);
+                check.setTextColor(BLUE);
+                row.addView(check);
+            }
+
+            row.setOnClickListener(v -> {
+                stockFilter = option;
+                refreshGrid();
+                if (dialogHolder[0] != null) {
+                    dialogHolder[0].dismiss();
+                }
+            });
+
+            shell.addView(row);
+        }
+
+        dialogHolder[0] = buildModernDialog(shell);
+        dialogHolder[0].show();
     }
 
     // -------------------------
@@ -823,5 +1222,28 @@ public class InventoryHomeView {
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(heightDp)
         ));
         return v;
+    }
+
+    /** Plain ScrollView ay walang setMaxHeight() - dito natin ito idinadagdag. */
+    private static class MaxHeightScrollView extends ScrollView {
+
+        private final int maxHeightPx;
+
+        MaxHeightScrollView(Context context, int maxHeightPx) {
+            super(context);
+            this.maxHeightPx = maxHeightPx;
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+
+            int heightSpec = heightMeasureSpec;
+
+            if (View.MeasureSpec.getMode(heightMeasureSpec) != View.MeasureSpec.EXACTLY) {
+                heightSpec = View.MeasureSpec.makeMeasureSpec(maxHeightPx, View.MeasureSpec.AT_MOST);
+            }
+
+            super.onMeasure(widthMeasureSpec, heightSpec);
+        }
     }
 }

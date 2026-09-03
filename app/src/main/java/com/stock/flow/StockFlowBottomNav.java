@@ -77,6 +77,35 @@ public class StockFlowBottomNav extends View {
         iconProfile = ContextCompat.getDrawable(context, R.drawable.ic_profile);
     }
 
+    private boolean barVisible = true;
+
+    /**
+     * Itinatago o ipinapakita ang buong bar gamit ang slide-down/up
+     * na animation. Ligtas itong tawagin bago pa ma-layout ang View
+     * (naghihintay muna gamit ang post()).
+     */
+    public void setBarVisible(boolean visible) {
+
+        if (visible == barVisible) {
+            return;
+        }
+
+        barVisible = visible;
+
+        if (getHeight() == 0) {
+            post(() -> animate()
+                    .translationY(visible ? 0f : getHeight())
+                    .setDuration(200)
+                    .start());
+            return;
+        }
+
+        animate()
+                .translationY(visible ? 0f : getHeight())
+                .setDuration(200)
+                .start();
+    }
+
     public void setOnNavigationSelectedListener(
             OnNavigationSelectedListener listener) {
 

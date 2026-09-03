@@ -1,15 +1,33 @@
 package com.stock.flow;
 
+import android.app.AlertDialog;
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.pdf.PdfDocument;
+import android.os.Bundle;
+import android.os.CancellationSignal;
+import android.os.ParcelFileDescriptor;
+import android.print.PageRange;
+import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintDocumentInfo;
+import android.print.PrintManager;
+import android.print.pdf.PrintedPdfDocument;
 import android.view.Gravity;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.charts.PieChart;
@@ -22,6 +40,8 @@ import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.data.PieEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -53,6 +73,7 @@ public class SalesHomeView {
     private final int LIGHT_BORDER = Color.rgb(225, 231, 240);
 
     private List<SaleRecord> allSales = new ArrayList<>();
+    private PaymentSettings paymentSettings;
 
     private TextView totalSalesValue;
     private TextView ordersValue;
@@ -112,6 +133,11 @@ public class SalesHomeView {
     public void setSales(List<SaleRecord> sales) {
         this.allSales = sales != null ? sales : new ArrayList<>();
         refreshAll();
+    }
+
+    /** Tinatawag ng Fragment tuwing may bagong payment settings mula sa Profile. */
+    public void setPaymentSettings(PaymentSettings settings) {
+        this.paymentSettings = settings;
     }
 
     private void refreshAll() {
@@ -599,6 +625,15 @@ public class SalesHomeView {
         amountView.setTextColor(NAVY);
         row.addView(amountView);
 
+        row.setClickable(true);
+        row.setFocusable(true);
+        android.util.TypedValue outValue = new android.util.TypedValue();
+        context.getTheme().resolveAttribute(
+                android.R.attr.selectableItemBackground, outValue, true
+        );
+        row.setBackgroundResource(outValue.resourceId != 0 ? outValue.resourceId : 0);
+        row.setOnClickListener(v -> showReceiptDialog(sale));
+
         return row;
     }
 
@@ -638,6 +673,465 @@ public class SalesHomeView {
         } catch (Exception e) {
             return sale.getDate() + " " + sale.getTime();
         }
+    }
+
+    // -------------------------
+    // RECEIPT (pag tinap ang isang transaction)
+    // -------------------------
+
+    private void showReceiptDialog(SaleRecord sale) {
+
+        List<SaleItem> items = sale.getItems() != null ? sale.getItems() : new ArrayList<>();
+
+        LinearLayout outer = new LinearLayout(context);
+        outer.setOrientation(LinearLayout.VERTICAL);
+        outer.setPadding(dp(16), dp(24), dp(16), dp(24));
+
+        ZigzagEdgeView topEdge = new ZigzagEdgeView(context, true, Color.WHITE, 14f);
+        outer.addView(topEdge, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(12)
+        ));
+
+        MaxHeightScrollView scroll = new MaxHeightScrollView(context, dp(480));
+        GradientDrawable cardBg = new GradientDrawable();
+        cardBg.setColor(Color.WHITE);
+        scroll.setBackground(cardBg);
+        LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        scroll.setLayoutParams(scrollParams);
+
+        LinearLayout receiptContent = buildReceiptContent(sale, items);
+        scroll.addView(receiptContent);
+        outer.addView(scroll);
+
+        ZigzagEdgeView bottomEdge = new ZigzagEdgeView(context, false, Color.WHITE, 14f);
+        outer.addView(bottomEdge, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(12)
+        ));
+
+        LinearLayout buttonRow = new LinearLayout(context);
+        buttonRow.setOrientation(LinearLayout.HORIZONTAL);
+        buttonRow.setPadding(0, dp(16), 0, 0);
+
+        LinearLayout printingIndicator = new LinearLayout(context);
+        printingIndicator.setOrientation(LinearLayout.HORIZONTAL);
+        printingIndicator.setGravity(Gravity.CENTER);
+        printingIndicator.setPadding(dp(14), dp(10), dp(14), dp(10));
+
+        GradientDrawable printingBg = new GradientDrawable();
+        printingBg.setColor(Color.rgb(232, 239, 250));
+        printingBg.setCornerRadius(dp(12));
+        printingIndicator.setBackground(printingBg);
+
+        TextView printingText = new TextView(context);
+        printingText.setText("\uD83D\uDDA8 Naglilimbag...");
+        printingText.setTextSize(13);
+        printingText.setTypeface(null, Typeface.BOLD);
+        printingText.setTextColor(BLUE);
+        printingIndicator.addView(printingText);
+
+        printingIndicator.setVisibility(View.GONE);
+        LinearLayout.LayoutParams printingParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        printingParams.bottomMargin = dp(10);
+        outer.addView(printingIndicator, printingParams);
+
+        AlertDialog dialog = new AlertDialog.Builder(context)
+                .setView(outer)
+                .setCancelable(true)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+
+        LinearLayout printBtn = flatDialogButton("Print", BLUE, true);
+        printBtn.setOnClickListener(v -> {
+
+            printingIndicator.setVisibility(View.VISIBLE);
+            printingIndicator.setTranslationY(dp(40));
+            printingIndicator.setAlpha(0f);
+            printingIndicator.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .setDuration(300)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> printReceipt(sale, items))
+                    .start();
+        });
+        LinearLayout.LayoutParams printParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        );
+        printParams.rightMargin = dp(8);
+        buttonRow.addView(printBtn, printParams);
+
+        LinearLayout closeBtn = flatDialogButton("Close", NAVY, false);
+        closeBtn.setOnClickListener(v -> dialog.dismiss());
+        LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        );
+        buttonRow.addView(closeBtn, closeParams);
+
+        outer.addView(buttonRow);
+
+        dialog.setOnShowListener(d -> {
+            outer.setTranslationY(dp(300));
+            outer.setAlpha(0f);
+            outer.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .setDuration(650)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        });
+
+        dialog.show();
+    }
+
+    private LinearLayout flatDialogButton(String label, int color, boolean filled) {
+
+        LinearLayout button = new LinearLayout(context);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(0, dp(12), 0, dp(12));
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(12));
+        if (filled) {
+            bg.setColor(color);
+        } else {
+            bg.setColor(Color.WHITE);
+            bg.setStroke(dp(1), LIGHT_BORDER);
+        }
+        button.setBackground(bg);
+
+        TextView text = new TextView(context);
+        text.setText(label);
+        text.setTextSize(13);
+        text.setTypeface(null, Typeface.BOLD);
+        text.setTextColor(filled ? Color.WHITE : color);
+        button.addView(text);
+
+        return button;
+    }
+
+    private LinearLayout buildReceiptContent(SaleRecord sale, List<SaleItem> items) {
+
+        LinearLayout receipt = new LinearLayout(context);
+        receipt.setOrientation(LinearLayout.VERTICAL);
+        receipt.setPadding(dp(20), dp(16), dp(20), dp(16));
+
+        TextView successLabel = new TextView(context);
+        successLabel.setText("\u2713 Payment Successful");
+        successLabel.setTextSize(15);
+        successLabel.setTypeface(null, Typeface.BOLD);
+        successLabel.setTextColor(GREEN);
+        successLabel.setGravity(Gravity.CENTER);
+        receipt.addView(successLabel);
+        receipt.addView(spacer(14));
+
+        ImageView logoView = new ImageView(context);
+        logoView.setImageResource(R.drawable.ic_stockflow_logo);
+        logoView.setAdjustViewBounds(true);
+        logoView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(40)
+        );
+        logoParams.gravity = Gravity.CENTER_HORIZONTAL;
+        logoParams.bottomMargin = dp(6);
+        receipt.addView(logoView, logoParams);
+
+        String storeName = (paymentSettings != null
+                && paymentSettings.getStoreName() != null
+                && !paymentSettings.getStoreName().isEmpty())
+                ? paymentSettings.getStoreName() : "StockFlow POS";
+
+        TextView storeNameView = new TextView(context);
+        storeNameView.setText(storeName);
+        storeNameView.setTextSize(18);
+        storeNameView.setTypeface(null, Typeface.BOLD);
+        storeNameView.setTextColor(NAVY);
+        storeNameView.setGravity(Gravity.CENTER);
+        receipt.addView(storeNameView);
+
+        TextView dateView = new TextView(context);
+        dateView.setText(sale.getDate() + " \u2022 " + sale.getTime());
+        dateView.setTextSize(12);
+        dateView.setTextColor(GRAY_TEXT);
+        dateView.setGravity(Gravity.CENTER);
+        receipt.addView(dateView);
+
+        receipt.addView(spacer(14));
+        receipt.addView(dashedDivider());
+        receipt.addView(spacer(10));
+
+        for (SaleItem item : items) {
+            LinearLayout row = new LinearLayout(context);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setPadding(0, dp(4), 0, dp(4));
+
+            LinearLayout nameCol = new LinearLayout(context);
+            nameCol.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams nameColParams = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            );
+
+            TextView nameView = new TextView(context);
+            nameView.setText(item.getName());
+            nameView.setTextSize(13);
+            nameView.setTextColor(NAVY);
+            nameCol.addView(nameView);
+
+            TextView qtyPriceView = new TextView(context);
+            qtyPriceView.setText(item.getQty() + " x \u20B1"
+                    + String.format(Locale.getDefault(), "%.2f", item.getPrice()));
+            qtyPriceView.setTextSize(11);
+            qtyPriceView.setTextColor(GRAY_TEXT);
+            nameCol.addView(qtyPriceView);
+
+            row.addView(nameCol, nameColParams);
+
+            TextView subtotalView = new TextView(context);
+            subtotalView.setText("\u20B1" + String.format(Locale.getDefault(), "%.2f", item.getSubtotal()));
+            subtotalView.setTextSize(13);
+            subtotalView.setTypeface(null, Typeface.BOLD);
+            subtotalView.setTextColor(NAVY);
+            row.addView(subtotalView);
+
+            receipt.addView(row);
+        }
+
+        receipt.addView(spacer(10));
+        receipt.addView(dashedDivider());
+        receipt.addView(spacer(10));
+
+        receipt.addView(receiptRow("Total", "\u20B1" + String.format(Locale.getDefault(), "%.2f", sale.getTotalAmount()), true));
+        receipt.addView(receiptRow("Payment Method", sale.getPaymentMethod(), false));
+
+        if (sale.getCashReceived() != null) {
+            receipt.addView(receiptRow("Cash Received", "\u20B1" + String.format(Locale.getDefault(), "%.2f", sale.getCashReceived()), false));
+        }
+        if (sale.getChange() != null) {
+            receipt.addView(receiptRow("Change", "\u20B1" + String.format(Locale.getDefault(), "%.2f", sale.getChange()), false));
+        }
+        if (sale.getReferenceNumber() != null && !sale.getReferenceNumber().isEmpty()) {
+            receipt.addView(receiptRow("Reference No.", sale.getReferenceNumber(), false));
+        }
+        if (sale.getUtangCustomerName() != null && !sale.getUtangCustomerName().isEmpty()) {
+            receipt.addView(receiptRow("Utang ni", sale.getUtangCustomerName(), false));
+        }
+
+        receipt.addView(spacer(10));
+        receipt.addView(dashedDivider());
+        receipt.addView(spacer(10));
+
+        receipt.addView(receiptRow("Transaction No.", sale.getSaleId(), false));
+
+        receipt.addView(spacer(16));
+
+        TextView thanksView = new TextView(context);
+        thanksView.setText("Salamat sa pagbili!");
+        thanksView.setTextSize(12);
+        thanksView.setTextColor(GRAY_TEXT);
+        thanksView.setGravity(Gravity.CENTER);
+        receipt.addView(thanksView);
+
+        return receipt;
+    }
+
+    private View receiptRow(String label, String value, boolean emphasize) {
+
+        LinearLayout row = new LinearLayout(context);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(0, dp(4), 0, dp(4));
+
+        TextView labelView = new TextView(context);
+        labelView.setText(label);
+        labelView.setTextSize(emphasize ? 15 : 12);
+        labelView.setTypeface(null, emphasize ? Typeface.BOLD : Typeface.NORMAL);
+        labelView.setTextColor(emphasize ? NAVY : GRAY_TEXT);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        );
+        row.addView(labelView, labelParams);
+
+        TextView valueView = new TextView(context);
+        valueView.setText(value);
+        valueView.setTextSize(emphasize ? 15 : 12);
+        valueView.setTypeface(null, Typeface.BOLD);
+        valueView.setTextColor(emphasize ? BLUE : NAVY);
+        row.addView(valueView);
+
+        return row;
+    }
+
+    private View dashedDivider() {
+        View line = new View(context);
+        line.setBackgroundColor(LIGHT_BORDER);
+        line.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(1)
+        ));
+        return line;
+    }
+
+    /** Plain ScrollView ay walang setMaxHeight() - dito natin ito idinadagdag. */
+    private static class MaxHeightScrollView extends ScrollView {
+
+        private final int maxHeightPx;
+
+        MaxHeightScrollView(Context context, int maxHeightPx) {
+            super(context);
+            this.maxHeightPx = maxHeightPx;
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+
+            int heightSpec = heightMeasureSpec;
+
+            if (View.MeasureSpec.getMode(heightMeasureSpec) != View.MeasureSpec.EXACTLY) {
+                heightSpec = View.MeasureSpec.makeMeasureSpec(maxHeightPx, View.MeasureSpec.AT_MOST);
+            }
+
+            super.onMeasure(widthMeasureSpec, heightSpec);
+        }
+    }
+
+    /** Zigzag/torn-paper na gilid, gaya ng putol na resibo mula sa thermal printer. */
+    private static class ZigzagEdgeView extends View {
+
+        private final boolean pointUp;
+        private final float toothWidthDp;
+        private final float density;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        ZigzagEdgeView(Context context, boolean pointUp, int fillColor, float toothWidthDp) {
+            super(context);
+            this.pointUp = pointUp;
+            this.toothWidthDp = toothWidthDp;
+            this.density = context.getResources().getDisplayMetrics().density;
+            paint.setColor(fillColor);
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+
+            float width = getWidth();
+            float height = getHeight();
+
+            if (width <= 0 || height <= 0) {
+                return;
+            }
+
+            float toothWidthPx = toothWidthDp * density;
+            int count = Math.max(1, Math.round(width / toothWidthPx));
+            float toothWidth = width / count;
+
+            Path path = new Path();
+
+            if (pointUp) {
+                path.moveTo(0, height);
+                for (int i = 0; i < count; i++) {
+                    float midX = (i + 0.5f) * toothWidth;
+                    float nextX = (i + 1f) * toothWidth;
+                    path.lineTo(midX, 0);
+                    path.lineTo(nextX, height);
+                }
+            } else {
+                path.moveTo(0, 0);
+                for (int i = 0; i < count; i++) {
+                    float midX = (i + 0.5f) * toothWidth;
+                    float nextX = (i + 1f) * toothWidth;
+                    path.lineTo(midX, height);
+                    path.lineTo(nextX, 0);
+                }
+            }
+
+            path.close();
+            canvas.drawPath(path, paint);
+        }
+    }
+
+    // -------------------------
+    // PRINT
+    // -------------------------
+
+    private void printReceipt(SaleRecord sale, List<SaleItem> items) {
+
+        PrintManager printManager = (PrintManager) context.getSystemService(Context.PRINT_SERVICE);
+
+        if (printManager == null) {
+            Toast.makeText(context, "Hindi available ang print service sa device na ito", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        LinearLayout printContent = buildReceiptContent(sale, items);
+        printContent.setBackgroundColor(Color.WHITE);
+
+        String jobName = "Resibo_" + sale.getSaleId();
+
+        PrintDocumentAdapter adapter = new PrintDocumentAdapter() {
+
+            private PrintedPdfDocument pdfDocument;
+
+            @Override
+            public void onLayout(
+                    PrintAttributes oldAttributes,
+                    PrintAttributes newAttributes,
+                    CancellationSignal cancellationSignal,
+                    LayoutResultCallback callback,
+                    Bundle extras) {
+
+                pdfDocument = new PrintedPdfDocument(context, newAttributes);
+
+                if (cancellationSignal.isCanceled()) {
+                    callback.onLayoutCancelled();
+                    return;
+                }
+
+                PrintDocumentInfo info = new PrintDocumentInfo.Builder(jobName + ".pdf")
+                        .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                        .setPageCount(1)
+                        .build();
+
+                callback.onLayoutFinished(info, true);
+            }
+
+            @Override
+            public void onWrite(
+                    PageRange[] pages,
+                    ParcelFileDescriptor destination,
+                    CancellationSignal cancellationSignal,
+                    WriteResultCallback callback) {
+
+                PdfDocument.Page page = pdfDocument.startPage(1);
+
+                int pageWidth = page.getInfo().getPageWidth();
+
+                int widthSpec = View.MeasureSpec.makeMeasureSpec(pageWidth, View.MeasureSpec.EXACTLY);
+                int heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+                printContent.measure(widthSpec, heightSpec);
+                printContent.layout(0, 0, pageWidth, printContent.getMeasuredHeight());
+
+                printContent.draw(page.getCanvas());
+                pdfDocument.finishPage(page);
+
+                try {
+                    pdfDocument.writeTo(new FileOutputStream(destination.getFileDescriptor()));
+                    callback.onWriteFinished(new PageRange[]{PageRange.ALL_PAGES});
+                } catch (IOException e) {
+                    callback.onWriteFailed(e.getMessage());
+                } finally {
+                    pdfDocument.close();
+                    pdfDocument = null;
+                }
+            }
+        };
+
+        printManager.print(jobName, adapter, new PrintAttributes.Builder().build());
     }
 
     // -------------------------

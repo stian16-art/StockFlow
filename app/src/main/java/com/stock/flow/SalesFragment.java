@@ -26,6 +26,8 @@ public class SalesFragment extends Fragment {
     private SalesHomeView salesHomeView;
     private DatabaseReference salesRef;
     private ValueEventListener salesListener;
+    private DatabaseReference paymentSettingsRef;
+    private ValueEventListener paymentSettingsListener;
 
     @Nullable
     @Override
@@ -38,8 +40,39 @@ public class SalesFragment extends Fragment {
         View view = salesHomeView.build();
 
         startListeningToSales();
+        startListeningToPaymentSettings();
 
         return view;
+    }
+
+    private void startListeningToPaymentSettings() {
+
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            return;
+        }
+
+        paymentSettingsRef = FirebaseDatabase.getInstance()
+                .getReference("default_inventory")
+                .child(user.getUid())
+                .child("paymentSettings");
+
+        paymentSettingsListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                PaymentSettings settings = snapshot.getValue(PaymentSettings.class);
+                if (salesHomeView != null) {
+                    salesHomeView.setPaymentSettings(settings);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                // Tahimik na laktawan - hindi kritikal
+            }
+        };
+
+        paymentSettingsRef.addValueEventListener(paymentSettingsListener);
     }
 
     private void startListeningToSales() {
@@ -95,6 +128,9 @@ public class SalesFragment extends Fragment {
 
         if (salesRef != null && salesListener != null) {
             salesRef.removeEventListener(salesListener);
+        }
+        if (paymentSettingsRef != null && paymentSettingsListener != null) {
+            paymentSettingsRef.removeEventListener(paymentSettingsListener);
         }
         salesHomeView = null;
     }

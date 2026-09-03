@@ -8,15 +8,51 @@ import java.util.List;
 public class SaleRecord {
 
     private long createdAt;
+    private Double cashReceived;
+    private Double change;
     private String date;
     private List<SaleItem> items;
     private String paymentMethod;
+    private String referenceNumber;
     private String saleId;
     private String time;
     private double totalAmount;
     private double totalProfit;
+    private String utangCustomerName;
 
     public SaleRecord() {
+    }
+
+    public String getUtangCustomerName() {
+        return utangCustomerName;
+    }
+
+    public void setUtangCustomerName(String utangCustomerName) {
+        this.utangCustomerName = utangCustomerName;
+    }
+
+    public Double getCashReceived() {
+        return cashReceived;
+    }
+
+    public void setCashReceived(Double cashReceived) {
+        this.cashReceived = cashReceived;
+    }
+
+    public Double getChange() {
+        return change;
+    }
+
+    public void setChange(Double change) {
+        this.change = change;
+    }
+
+    public String getReferenceNumber() {
+        return referenceNumber;
+    }
+
+    public void setReferenceNumber(String referenceNumber) {
+        this.referenceNumber = referenceNumber;
     }
 
     public long getCreatedAt() {
