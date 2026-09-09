@@ -38,6 +38,14 @@
     android:name=".UtangActivity"
     android:exported="false" />
 
+        <activity
+    android:name=".ProfitReportActivity"
+    android:exported="false" />
+
+        <activity
+    android:name=".ProfitMonitorActivity"
+    android:exported="false" />
+
     </application>
 
 </manifest>

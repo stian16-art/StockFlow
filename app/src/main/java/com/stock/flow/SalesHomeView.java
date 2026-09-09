@@ -254,7 +254,7 @@ public class SalesHomeView {
         iconWrap.setBackground(circleBg);
 
         IconViews.IconView icon = new IconViews.IconView(context, iconType, accentColor);
-        int iconSize = dp(16);
+        int iconSize = dp(20);
         iconWrap.addView(icon, new FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER));
 
         int wrapSize = dp(32);
@@ -588,7 +588,7 @@ public class SalesHomeView {
         iconWrap.setBackground(circleBg);
 
         IconViews.IconView icon = new IconViews.IconView(context, IconViews.TYPE_CART, paymentColor);
-        int iconSize = dp(18);
+        int iconSize = dp(24);
         iconWrap.addView(icon, new FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER));
 
         int wrapSize = dp(36);

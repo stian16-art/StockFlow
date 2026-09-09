@@ -21,7 +21,6 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
@@ -43,6 +42,7 @@ public class ProfileHomeView {
     private final int BLUE = Color.rgb(45, 108, 223);
     private final int GRAY_TEXT = Color.rgb(130, 138, 150);
     private final int RED = Color.rgb(230, 70, 70);
+    private final int GREEN = Color.rgb(34, 197, 94);
 
     public ProfileHomeView(android.content.Context context) {
         this.context = context;
@@ -80,8 +80,15 @@ public class ProfileHomeView {
         column.addView(buildUtangButton());
         column.addView(spacer(16));
 
-        column.addView(buildMigrateButton());
+        column.addView(buildProfitReportButton());
         column.addView(spacer(16));
+        
+        
+
+        column.addView(buildProfitMonitorButton());
+        column.addView(spacer(16));
+
+        
 
         column.addView(buildLogoutButton());
 
@@ -412,40 +419,17 @@ public class ProfileHomeView {
     }
 
     // -------------------------
-    // MIGRATE LEGACY PRODUCTS (one-time utility)
-    // -------------------------
-
-    private View buildMigrateButton() {
-
-        LinearLayout button = new LinearLayout(context);
-        button.setOrientation(LinearLayout.HORIZONTAL);
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(0, dp(16), 0, dp(16));
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(CARD_BG);
-        bg.setCornerRadius(dp(16));
-        bg.setStroke(dp(1), Color.rgb(210, 225, 250));
-        button.setBackground(bg);
-        button.setElevation(dp(1));
-
-        TextView text = new TextView(context);
-        text.setText("Migrate Legacy Products");
-        text.setTextSize(14);
-        text.setTypeface(null, Typeface.BOLD);
-        text.setTextColor(BLUE);
-        button.addView(text);
-
-        button.setOnClickListener(v -> handleMigrateLegacyProducts());
-
-        return button;
-    }
-
-    // -------------------------
     // UTANG (customer credit)
     // -------------------------
 
-    private View buildUtangButton() {
+    /**
+     * Reusable na "row button" - icon sa loob ng kulay na bilog,
+     * text, opsyonal na chevron. Ginagamit ng Utang, Profit Report,
+     * at Log Out para magkapareho silang lahat ng laki/padding.
+     */
+    private LinearLayout profileRowButton(
+            int iconType, int iconColor, int iconBgColor,
+            String label, int labelColor, boolean showChevron) {
 
         LinearLayout button = new LinearLayout(context);
         button.setOrientation(LinearLayout.HORIZONTAL);
@@ -462,29 +446,41 @@ public class ProfileHomeView {
         FrameLayout iconWrap = new FrameLayout(context);
         GradientDrawable circleBg = new GradientDrawable();
         circleBg.setShape(GradientDrawable.OVAL);
-        circleBg.setColor(Color.rgb(255, 235, 230));
+        circleBg.setColor(iconBgColor);
         iconWrap.setBackground(circleBg);
 
-        IconViews.IconView icon = new IconViews.IconView(context, IconViews.TYPE_WALLET, RED);
-        int iconSize = dp(18);
+        IconViews.IconView icon = new IconViews.IconView(context, iconType, iconColor);
+        int iconSize = dp(24);
         iconWrap.addView(icon, new FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER));
 
         int wrapSize = dp(36);
         button.addView(iconWrap, new LinearLayout.LayoutParams(wrapSize, wrapSize));
 
         TextView text = new TextView(context);
-        text.setText("Utang (Customer Credits)");
+        text.setText(label);
         text.setTextSize(14);
         text.setTypeface(null, Typeface.BOLD);
-        text.setTextColor(NAVY);
+        text.setTextColor(labelColor);
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
         );
         textParams.leftMargin = dp(12);
         button.addView(text, textParams);
 
-        IconViews.IconView chevron = new IconViews.IconView(context, IconViews.TYPE_CHEVRON, GRAY_TEXT);
-        button.addView(chevron, new LinearLayout.LayoutParams(dp(16), dp(16)));
+        if (showChevron) {
+            IconViews.IconView chevron = new IconViews.IconView(context, IconViews.TYPE_CHEVRON, GRAY_TEXT);
+            button.addView(chevron, new LinearLayout.LayoutParams(dp(16), dp(16)));
+        }
+
+        return button;
+    }
+
+    private View buildUtangButton() {
+
+        LinearLayout button = profileRowButton(
+                IconViews.TYPE_WALLET, RED, Color.rgb(255, 235, 230),
+                "Utang (Customer Credits)", NAVY, true
+        );
 
         button.setOnClickListener(v -> context.startActivity(
                 new Intent(context, UtangActivity.class)
@@ -493,111 +489,37 @@ public class ProfileHomeView {
         return button;
     }
 
-    /**
-     * Isang beses na tatakbo: kokopyahin yung mga lumang flat na
-     * products (direktang nasa ilalim ng default_inventory, walang
-     * kaugnay na UID) papunta sa default_inventory/<UID mo>/inventory,
-     * tapos tatanggalin sa lumang lokasyon. Ligtas itong i-tap
-     * ulit - kung wala nang matitirang legacy items, wala itong
-     * gagawin.
-     */
-    private void handleMigrateLegacyProducts() {
+    // -------------------------
+    // PROFIT REPORT
+    // -------------------------
 
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+    private View buildProfitReportButton() {
 
-        if (user == null) {
-            Toast.makeText(context, "Kailangan naka-login", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        LinearLayout button = profileRowButton(
+                IconViews.TYPE_COINS, GREEN, Color.rgb(224, 246, 233),
+                "Profit Report", NAVY, true
+        );
 
-        String myUid = user.getUid();
+        button.setOnClickListener(v -> context.startActivity(
+                new Intent(context, ProfitReportActivity.class)
+        ));
 
-        DatabaseReference rootRef = FirebaseDatabase.getInstance()
-                .getReference("default_inventory");
-
-        Toast.makeText(context, "Sinusuri ang lumang data...", Toast.LENGTH_SHORT).show();
-
-        rootRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(com.google.firebase.database.DataSnapshot snapshot) {
-
-                Map<String, Object> updates = new HashMap<>();
-                int count = 0;
-
-                for (DataSnapshot child : snapshot.getChildren()) {
-
-                    String key = child.getKey();
-                    if (key == null) {
-                        continue;
-                    }
-
-                    // Legacy product = barcode key na puro numero lang.
-                    // Ang UID nodes ay may letra, kaya laktawan natin sila.
-                    if (!isAllDigits(key)) {
-                        continue;
-                    }
-
-                    Object value = child.getValue();
-                    if (value == null) {
-                        continue;
-                    }
-
-                    updates.put(myUid + "/inventory/" + key, value);
-                    updates.put(key, null);
-                    count++;
-                }
-
-                if (count == 0) {
-                    Toast.makeText(
-                            context,
-                            "Walang legacy products na makikita - up to date na.",
-                            Toast.LENGTH_LONG
-                    ).show();
-                    return;
-                }
-
-                int finalCount = count;
-
-                rootRef.updateChildren(updates).addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Toast.makeText(
-                                context,
-                                finalCount + " na produkto ang na-migrate papunta sa account mo.",
-                                Toast.LENGTH_LONG
-                        ).show();
-                    } else {
-                        Toast.makeText(
-                                context,
-                                "Nabigo ang migration: " + (task.getException() != null
-                                        ? task.getException().getMessage() : "unknown error"),
-                                Toast.LENGTH_LONG
-                        ).show();
-                    }
-                });
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                Toast.makeText(
-                        context,
-                        "Hindi mabasa ang lumang data: " + error.getMessage(),
-                        Toast.LENGTH_LONG
-                ).show();
-            }
-        });
+        return button;
     }
+    
+    private View buildProfitMonitorButton() {
 
-    private boolean isAllDigits(String s) {
-        if (s.isEmpty()) {
-            return false;
-        }
-        for (int i = 0; i < s.length(); i++) {
-            if (!Character.isDigit(s.charAt(i))) {
-                return false;
-            }
-        }
-        return true;
-    }
+    LinearLayout button = profileRowButton(
+            IconViews.TYPE_TAG, BLUE, Color.rgb(222, 233, 250),
+            "Profit Monitor", NAVY, true
+    );
+
+    button.setOnClickListener(v -> context.startActivity(
+            new Intent(context, ProfitMonitorActivity.class)
+    ));
+
+    return button;
+}
 
     // -------------------------
     // LOGOUT BUTTON
@@ -605,24 +527,10 @@ public class ProfileHomeView {
 
     private View buildLogoutButton() {
 
-        LinearLayout button = new LinearLayout(context);
-        button.setOrientation(LinearLayout.HORIZONTAL);
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(0, dp(16), 0, dp(16));
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(CARD_BG);
-        bg.setCornerRadius(dp(16));
-        bg.setStroke(dp(1), Color.rgb(250, 210, 210));
-        button.setBackground(bg);
-        button.setElevation(dp(1));
-
-        TextView text = new TextView(context);
-        text.setText("Log Out");
-        text.setTextSize(15);
-        text.setTypeface(null, Typeface.BOLD);
-        text.setTextColor(RED);
-        button.addView(text);
+        LinearLayout button = profileRowButton(
+                IconViews.TYPE_LOGOUT, RED, Color.rgb(255, 235, 230),
+                "Log Out", RED, false
+        );
 
         button.setOnClickListener(v -> handleLogout());
 

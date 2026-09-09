@@ -134,11 +134,25 @@ public class UtangActivity extends AppCompatActivity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView backBtn = new TextView(this);
-        backBtn.setText("\u2190");
-        backBtn.setTextSize(20);
-        backBtn.setTextColor(NAVY);
-        backBtn.setPadding(dp(6), dp(4), dp(14), dp(4));
+        FrameLayout backBtn = new FrameLayout(this);
+        GradientDrawable backBg = new GradientDrawable();
+        backBg.setShape(GradientDrawable.OVAL);
+        backBg.setColor(Color.WHITE);
+        backBtn.setBackground(backBg);
+        backBtn.setElevation(dp(3));
+
+        IconViews.IconView backIcon = new IconViews.IconView(this, IconViews.TYPE_CHEVRON, NAVY);
+        backIcon.setRotation(180f);
+        int backIconSize = dp(16);
+        backBtn.addView(backIcon, new FrameLayout.LayoutParams(
+                backIconSize, backIconSize, Gravity.CENTER
+        ));
+
+        int backSize = dp(38);
+        LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(backSize, backSize);
+        backParams.rightMargin = dp(14);
+        backBtn.setLayoutParams(backParams);
+
         backBtn.setOnClickListener(v -> finish());
         row.addView(backBtn);
 
